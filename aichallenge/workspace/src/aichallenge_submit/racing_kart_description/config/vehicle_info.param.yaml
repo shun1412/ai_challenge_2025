@@ -8,5 +8,5 @@
     rear_overhang: 0.510 # between rear wheel center and vehicle rear
     left_overhang: 0.09 # between rear left wheel center and vehicle left (the half of the rear wheel width)
     right_overhang: 0.09 # between rear right wheel center and vehicle right (the half of the rear wheel width)
-    vehicle_height: 2.2 # vehicle height + sensor_kit height
+    vehicle_height: 1.2 # vehicle height + sensor_kit height
     max_steer_angle: 0.64 # [rad]

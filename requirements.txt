@@ -1,8 +1,3 @@
-cvxpy
-numpy==1.26.4
-matplotlib
-scipy
-ecos
-pandas
-plotly
-kaleido
+pandas>=1.3.0
+matplotlib>=3.5.0
+numpy>=1.21.0

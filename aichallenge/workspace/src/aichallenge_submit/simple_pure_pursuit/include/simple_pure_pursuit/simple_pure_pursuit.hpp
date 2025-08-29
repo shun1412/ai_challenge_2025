@@ -51,9 +51,14 @@ class SimplePurePursuit : public rclcpp::Node {
   const bool use_external_target_vel_;
   const double external_target_vel_;
   const double steering_tire_angle_gain_;
+  // Smoothing factor (0.0 = no smoothing, 1.0 = full smoothing)
+  const double steering_angle_smoothing_gain_;
 
 
  private:
+  // Previous steering angle for smoothing
+  double prev_steering_angle_ = 0.0;
+  bool is_prev_steering_initialized_ = false;
   void onTimer();
   bool subscribeMessageAvailable();
 };
