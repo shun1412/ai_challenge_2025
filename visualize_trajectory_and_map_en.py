@@ -126,7 +126,7 @@ def visualize_trajectory_and_map():
     # File paths
     base_path = "aichallenge/workspace/src/aichallenge_submit"
     osm_file = os.path.join(base_path, "aichallenge_submit_launch/map/lanelet2_map.osm")
-    trajectory_30km = os.path.join(base_path, "simple_trajectory_generator/data/raceline_awsim_30km.csv")
+    trajectory_30km = os.path.join(base_path, "simple_trajectory_generator/data/raceline_awsim_30km_from_garage.csv")
     trajectory_15km = os.path.join(base_path, "simple_trajectory_generator/data/raceline_awsim_15km.csv")
     
     # Load data
@@ -189,7 +189,7 @@ def visualize_trajectory_and_map():
     ax.set_ylim(all_y.min() - y_margin, all_y.max() + y_margin)
     
     # Save and display
-    num = 100
+    num = 102
     plt.tight_layout()
     plt.savefig('trajectory_and_map_visualization%d.png' % num, dpi=300, bbox_inches='tight')
     print("Image saved: trajectory_and_map_visualization%d.png" % num)
@@ -204,7 +204,7 @@ def create_animation():
     # File paths
     base_path = "aichallenge/workspace/src/aichallenge_submit"
     osm_file = os.path.join(base_path, "aichallenge_submit_launch/map/lanelet2_map.osm")
-    trajectory_30km = os.path.join(base_path, "simple_trajectory_generator/data/raceline_awsim_30km.csv")
+    trajectory_30km = os.path.join(base_path, "simple_trajectory_generator/data/raceline_awsim_30km_from_garage.csv")
     trajectory_15km = os.path.join(base_path, "simple_trajectory_generator/data/raceline_awsim_15km.csv")
     
     # Load data

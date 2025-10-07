@@ -25,7 +25,21 @@ SimplePurePursuit::SimplePurePursuit()
   use_external_target_vel_(declare_parameter<bool>("use_external_target_vel", false)),
   external_target_vel_(declare_parameter<float>("external_target_vel", 0.0)),
   steering_tire_angle_gain_(declare_parameter<float>("steering_tire_angle_gain", 1.0)),
-  steering_angle_smoothing_gain_(declare_parameter<float>("steering_angle_smoothing_gain", 0.5))
+  steering_angle_smoothing_gain_(declare_parameter<float>("steering_angle_smoothing_gain", 0.5)),
+  // lap-based parameters
+  lap1_lookahead_gain_(declare_parameter<float>("lap1_lookahead_gain", 0.264)),
+  lap1_lookahead_min_distance_(declare_parameter<float>("lap1_lookahead_min_distance", 6.06)),
+  lap1_speed_proportional_gain_(declare_parameter<float>("lap1_speed_proportional_gain", 1.05)),
+  lap1_steering_angle_smoothing_gain_(declare_parameter<float>("lap1_steering_angle_smoothing_gain", 0.22)),
+  lap1_external_target_vel_(declare_parameter<float>("lap1_external_target_vel", 16.0)),
+  lap2_lookahead_gain_(declare_parameter<float>("lap2_lookahead_gain", 0.28)),
+  lap2_lookahead_min_distance_(declare_parameter<float>("lap2_lookahead_min_distance", 7.0)),
+  lap2_speed_proportional_gain_(declare_parameter<float>("lap2_speed_proportional_gain", 0.95)),
+  lap2_steering_angle_smoothing_gain_(declare_parameter<float>("lap2_steering_angle_smoothing_gain", 0.18)),
+  lap2_external_target_vel_(declare_parameter<float>("lap2_external_target_vel", 18.0)),
+  current_lap_(1),
+  parameters_switched_(false),
+  last_switched_lap_(0)
 {
   pub_cmd_ = create_publisher<AckermannControlCommand>("output/control_cmd", 1);
   pub_raw_cmd_ = create_publisher<AckermannControlCommand>("output/raw_control_cmd", 1);
@@ -36,10 +50,68 @@ SimplePurePursuit::SimplePurePursuit()
     "input/kinematics", bv_qos, [this](const Odometry::SharedPtr msg) { odometry_ = msg; });
   sub_trajectory_ = create_subscription<Trajectory>(
     "input/trajectory", bv_qos, [this](const Trajectory::SharedPtr msg) { trajectory_ = msg; });
+  
+  // AWSIM status subscription for lap tracking
+  sub_status_ = create_subscription<std_msgs::msg::Float32MultiArray>(
+    "/aichallenge/awsim/status", rclcpp::QoS{1}.best_effort(),
+    std::bind(&SimplePurePursuit::statusCallback, this, std::placeholders::_1));
 
   using namespace std::literals::chrono_literals;
   timer_ =
     rclcpp::create_timer(this, get_clock(), 10ms, std::bind(&SimplePurePursuit::onTimer, this));
+}
+
+void SimplePurePursuit::statusCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg)
+{
+  if (msg->data.size() < 4) return;
+  const int lap = static_cast<int>(msg->data[1]);
+  const int section = static_cast<int>(msg->data[3]);
+
+  // 同じラップで複数回切り替えないようにチェック
+  if (lap == last_switched_lap_) return;
+
+  if (lap % 2 == 1 && section == 7) {
+    // 奇数ラップの7セクションでLap2パラメータに切り替え
+    switchToLap2Parameters();
+    last_switched_lap_ = lap;
+  }
+  else if (lap % 2 == 0 && section == 7) {
+    // 偶数ラップの7セクションでLap1パラメータに切り替え
+    switchToLap2Parameters();
+    last_switched_lap_ = lap;
+  }
+}
+
+void SimplePurePursuit::switchToLap1Parameters()
+{
+  lookahead_gain_ = lap1_lookahead_gain_;
+  lookahead_min_distance_ = lap1_lookahead_min_distance_;
+  speed_proportional_gain_ = lap1_speed_proportional_gain_;
+  steering_angle_smoothing_gain_ = lap1_steering_angle_smoothing_gain_;
+  external_target_vel_ = lap1_external_target_vel_;
+  
+  RCLCPP_INFO(get_logger(), "Switched to lap 1 parameters:");
+  RCLCPP_INFO(get_logger(), "  lookahead_gain: %f", lookahead_gain_);
+  RCLCPP_INFO(get_logger(), "  lookahead_min_distance: %f", lookahead_min_distance_);
+  RCLCPP_INFO(get_logger(), "  speed_proportional_gain: %f", speed_proportional_gain_);
+  RCLCPP_INFO(get_logger(), "  steering_angle_smoothing_gain: %f", steering_angle_smoothing_gain_);
+  RCLCPP_INFO(get_logger(), "  external_target_vel: %f", external_target_vel_);
+}
+
+void SimplePurePursuit::switchToLap2Parameters()
+{
+  lookahead_gain_ = lap2_lookahead_gain_;
+  lookahead_min_distance_ = lap2_lookahead_min_distance_;
+  speed_proportional_gain_ = lap2_speed_proportional_gain_;
+  steering_angle_smoothing_gain_ = lap2_steering_angle_smoothing_gain_;
+  external_target_vel_ = lap2_external_target_vel_;
+  
+  RCLCPP_INFO(get_logger(), "Switched to lap 2 parameters:");
+  RCLCPP_INFO(get_logger(), "  lookahead_gain: %f", lookahead_gain_);
+  RCLCPP_INFO(get_logger(), "  lookahead_min_distance: %f", lookahead_min_distance_);
+  RCLCPP_INFO(get_logger(), "  speed_proportional_gain: %f", speed_proportional_gain_);
+  RCLCPP_INFO(get_logger(), "  steering_angle_smoothing_gain: %f", steering_angle_smoothing_gain_);
+  RCLCPP_INFO(get_logger(), "  external_target_vel: %f", external_target_vel_);
 }
 
 AckermannControlCommand zeroAckermannControlCommand(rclcpp::Time stamp)

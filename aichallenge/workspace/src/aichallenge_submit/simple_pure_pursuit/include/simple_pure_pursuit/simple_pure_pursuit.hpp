@@ -8,6 +8,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/float32_multi_array.hpp>
 #include <optional>
 #include <rclcpp/rclcpp.hpp>
 
@@ -28,6 +29,7 @@ class SimplePurePursuit : public rclcpp::Node {
   // subscribers
   rclcpp::Subscription<Odometry>::SharedPtr sub_kinematics_;
   rclcpp::Subscription<Trajectory>::SharedPtr sub_trajectory_;
+  rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr sub_status_;
   
   // publishers
   rclcpp::Publisher<AckermannControlCommand>::SharedPtr pub_cmd_;
@@ -41,19 +43,34 @@ class SimplePurePursuit : public rclcpp::Node {
   Trajectory::SharedPtr trajectory_;
   Odometry::SharedPtr odometry_;
 
-
-
-  // pure pursuit parameters
+  // pure pursuit parameters (now mutable for lap-based changes)
   const double wheel_base_;
-  const double lookahead_gain_;
-  const double lookahead_min_distance_;
-  const double speed_proportional_gain_;
+  double lookahead_gain_;
+  double lookahead_min_distance_;
+  double speed_proportional_gain_;
   const bool use_external_target_vel_;
-  const double external_target_vel_;
+  double external_target_vel_;
   const double steering_tire_angle_gain_;
   // Smoothing factor (0.0 = no smoothing, 1.0 = full smoothing)
-  const double steering_angle_smoothing_gain_;
+  double steering_angle_smoothing_gain_;
 
+  // lap-based parameter sets
+  double lap1_lookahead_gain_;
+  double lap1_lookahead_min_distance_;
+  double lap1_speed_proportional_gain_;
+  double lap1_steering_angle_smoothing_gain_;
+  double lap1_external_target_vel_;
+  
+  double lap2_lookahead_gain_;
+  double lap2_lookahead_min_distance_;
+  double lap2_speed_proportional_gain_;
+  double lap2_steering_angle_smoothing_gain_;
+  double lap2_external_target_vel_;
+
+  // lap tracking
+  int current_lap_;
+  bool parameters_switched_;
+  int last_switched_lap_;
 
  private:
   // Previous steering angle for smoothing
@@ -61,6 +78,9 @@ class SimplePurePursuit : public rclcpp::Node {
   bool is_prev_steering_initialized_ = false;
   void onTimer();
   bool subscribeMessageAvailable();
+  void statusCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg);
+  void switchToLap1Parameters();
+  void switchToLap2Parameters();
 };
 
 }  // namespace simple_pure_pursuit
