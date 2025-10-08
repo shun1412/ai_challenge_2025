@@ -16,6 +16,7 @@
 #include <autoware_auto_planning_msgs/msg/trajectory.hpp>
 #include <geometry_msgs/msg/pose.hpp>
 #include <geometry_msgs/msg/quaternion.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <filesystem>
 #include <fstream>
@@ -29,7 +30,7 @@ using TrajectoryPoint = autoware_auto_planning_msgs::msg::TrajectoryPoint;
 class CSVToTrajectory : public rclcpp::Node
 {
 public:
-  CSVToTrajectory() : Node("csv_to_trajectory_node"), switched_to_second_path_(false)
+  CSVToTrajectory() : Node("csv_to_trajectory_node"), switched_to_second_path_(false), region_pass_count_(0), was_in_region_(false)
   {
     const auto rb_qos = rclcpp::QoS(rclcpp::KeepLast(1)).durability_volatile().best_effort();
     pub_ = this->create_publisher<Trajectory>("trajectory", rb_qos);
@@ -57,8 +58,8 @@ public:
     RCLCPP_INFO(get_logger(), "Loaded initial trajectory from: %s", csv_paths_[current_csv_index_].c_str());
 
     // AWSIM statusのサブスクライバーを追加
-    sub_status_ = create_subscription<std_msgs::msg::Float32MultiArray>(
-      "/aichallenge/awsim/status", rclcpp::QoS{1}.best_effort(),
+    sub_status_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+      "/sensing/gnss/pose_with_covariance", rclcpp::QoS{1}.best_effort(),
       std::bind(&CSVToTrajectory::statusCallback, this, std::placeholders::_1));
 
     timer_ = this->create_wall_timer(
@@ -119,31 +120,41 @@ private:
     return !csv_trajectory_.points.empty();
   }
 
-  void statusCallback(const std_msgs::msg::Float32MultiArray::SharedPtr msg)
+  // 指定した領域内に座標があるかどうかを判定する関数
+  bool isInRegion(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr pose_msg, 
+                  double min_x, double max_x, double min_y, double max_y)
+  {
+    const double x = pose_msg->pose.pose.position.x;
+    const double y = pose_msg->pose.pose.position.y;
+    
+    return (x >= min_x && x <= max_x && y >= min_y && y <= max_y);
+  }
+
+  void statusCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
   {
     if (switched_to_second_path_) return;
 
-    if (msg->data.size() < 4) return;
-    const int lap = static_cast<int>(msg->data[1]);
-    const int section = static_cast<int>(msg->data[3]);
-
-    switch (lap) {
-      case 1:
-        switch (section) {
-          case 7:
-            current_csv_index_ = 1;
-            if (loadCSVTrajectory(csv_paths_[current_csv_index_])) {
-              switched_to_second_path_ = true;
-              RCLCPP_INFO(get_logger(), "Switched to second trajectory: %s", csv_paths_[current_csv_index_].c_str());
-            }
-            break;
-          default:
-            break;
+    // 指定した領域内に座標があるかどうかを判定
+    // min_x, max_x, min_y, max_y
+    bool is_in_region = isInRegion(msg, 89654, 89660, 43125, 43130);
+    
+    // 領域外から領域内に入った瞬間を検出
+    if (is_in_region && !was_in_region_) {
+      region_pass_count_++;
+      RCLCPP_INFO(get_logger(), "Entered region %d time(s)", region_pass_count_);
+      
+      // 2度目の進入時にトラジェクトリを切り替え
+      if (region_pass_count_ >= 1) {
+        current_csv_index_ = 1;
+        if (loadCSVTrajectory(csv_paths_[current_csv_index_])) {
+          switched_to_second_path_ = true;
+          RCLCPP_INFO(get_logger(), "Switched to second trajectory: %s", csv_paths_[current_csv_index_].c_str());
         }
-        break;
-      default:
-        break;
+      }
     }
+    
+    // 現在の状態を保存
+    was_in_region_ = is_in_region;
   }
   
   void publish_trajectory()
@@ -208,12 +219,14 @@ private:
   
   rclcpp::Publisher<Trajectory>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr sub_status_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr sub_status_;
   Trajectory csv_trajectory_;
   float z_;
   std::vector<std::string> csv_paths_;
   int current_csv_index_;
   bool switched_to_second_path_;
+  int region_pass_count_;  // 領域通過回数をカウント
+  bool was_in_region_;  // 前回のコールバックで領域内にいたかどうか
   OnSetParametersCallbackHandle::SharedPtr set_parameter_callback_handle_;
 };
 

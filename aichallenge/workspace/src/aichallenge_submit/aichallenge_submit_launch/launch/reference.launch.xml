@@ -118,7 +118,11 @@
 
       <!-- Customizable -->
       <node pkg="simple_trajectory_generator" exec="simple_trajectory_generator_node" name="simple_trajectory_generator" output="screen">
-            <param name="csv_paths" value="[$(find-pkg-share simple_trajectory_generator)/data/raceline_awsim_30km_from_garage.csv, $(find-pkg-share simple_trajectory_generator)/data/raceline_awsim_15km.csv]"/>
+            <!-- <param name="csv_paths" value="[$(find-pkg-share simple_trajectory_generator)/data/raceline_awsim_30km_from_garage.csv, $(find-pkg-share simple_trajectory_generator)/data/raceline_awsim_15km.csv]"/> -->
+            <param name="csv_paths" value="[
+              $(find-pkg-share simple_trajectory_generator)/data/proto_lap1.csv, 
+              $(find-pkg-share simple_trajectory_generator)/data/proto_lap2.csv
+            ]"/>
             <param name="z" value="6.5"/>
       </node>
       
