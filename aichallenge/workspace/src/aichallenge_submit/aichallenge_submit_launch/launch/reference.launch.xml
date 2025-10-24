@@ -130,7 +130,7 @@
   </group>
 
   <node pkg="editor_tool_server" exec="interactive_server" output="screen" name="editor_tool_server">
-    <param name="csv_file_path" value="/aichallenge/aichallenge/workspace/src/aichallenge_submit/simple_trajectory_generator/data/raceline_awsim_30km_from_garage.csv"/>
+    <param name="csv_file_path" value="/aichallenge/workspace/src/aichallenge_submit/simple_trajectory_generator/data/nokosan_lap1.csv"/>
     <param name="publish_on_initialize" value="false"/>
     <param name="wait_seconds" value="15.0"/>
     <param name="grad_min_speed" value="0.0"/>
